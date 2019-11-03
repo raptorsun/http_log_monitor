@@ -27,9 +27,12 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, running):
         frame_heat_map[log_item.section] = hit_count + 1
         # aggregate results
         if datetime.now() > next_aggregate_time:
-            total_hit_count = total_hit_count + frame_hit_count
             lps = 1.0 * frame_hit_count / REFRESH_INTERVAL
             aggregated_map['lps_frame'] = lps
+            total_hit_count = total_hit_count + frame_hit_count
+            time_delta = datetime.now() - start_time
+            total_lps = total_hit_count / time_delta.seconds
+            aggregated_map['lps_lifetime'] = total_lps
 
             aggregated_map['heat_map_frame'] = frame_heat_map
             # update total heat map

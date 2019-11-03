@@ -23,15 +23,29 @@ def show_ui(statistics, section_hit_dict):
 
 
 class Dashboard(npyscreen.Form):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._stats = kwargs.get('stats', {})
 
     def create(self):
-        self.lps_text = self.add(
-            npyscreen.TitleFixedText, name='LPS', value='', editable=False)
-        self.time_text = self.add(
-            npyscreen.TitleFixedText, name='Time', value='', editable=False)
+        self.keypress_timeout = 10
+        self._lps_frame_text = self.add(
+            npyscreen.TitleFixedText, name='LPS Frame', value='0', editable=False)
+        self._lps_lifetime_text = self.add(
+            npyscreen.TitleFixedText, name='LPS Lifetime', value='0', editable=False)
+        self._time_text = self.add(
+            npyscreen.TitleFixedText, name='Time', value='0', editable=False)
 
     def afterEditing(self):
-        self.parentApp.setNextForm(None)
+        self.parentApp.NEXT_ACTIVE_FORM = None
+
+    def while_waiting(self):
+        self._lps_frame_text.value = self._stats.get('lps_frame', 0)
+        self._lps_frame_text.display()
+        self._lps_lifetime_text.value = self._stats.get('lps_lifetime', 0)
+        self._lps_lifetime_text.display()
+        self._time_text.value = time.asctime()
+        self._time_text.display()
 
 
 class MonitorUI(npyscreen.NPSAppManaged):
@@ -41,38 +55,13 @@ class MonitorUI(npyscreen.NPSAppManaged):
         self._running = running
 
     def onStart(self):
-
-        self.addForm('MAIN', Dashboard, name='Dashboard')
-
-        self.thread_time = threading.Thread(target=self.update_stats)
-        self.thread_time.daemon = True
-        self.thread_time.start()
-
-    def update_stats(self):
-        while not self._running or self._running.value == 1:
-            self.getForm('MAIN').lps_text.value = str(self._stats_dict.get(
-                'lps_frame', 0))
-            self.getForm('MAIN').lps_text.display()
-            self.getForm('MAIN').time_text.value = str(datetime.datetime.now())
-            self.getForm('MAIN').time_text.display()
-            time.sleep(UI_REFRESH_INTERVAL)
-
-    # def while_waiting(self):
-    #     self.getForm('MAIN').lps_text.value = self._stats_dict.get(
-    #         'lps_frame', 0)
-    #     self.getForm('MAIN').lps_text.display()
-    #     self.getForm('MAIN').time_text.value = str(datetime.datetime.now())
-    #     self.getForm('MAIN').time_text.display()
-
-    def show_stat(self):
-        while self._running.value == 1:
-            lps = self._stats_dict['lps_frame']
-            print('lps:', lps, ', runnning:', self._running.value)
-            time.sleep(1)
+        self.addForm('MAIN', Dashboard, name='Dashboard',
+                     stats=self._stats_dict)
 
 
 if __name__ == '__main__':
     stats = {
         'lps_frame': 1.5,
     }
-    TestApp = MonitorUI(stats).run()
+    ui = MonitorUI(stats)
+    ui.run()
