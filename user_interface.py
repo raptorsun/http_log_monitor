@@ -59,11 +59,14 @@ class Dashboard(npyscreen.Form):
         self.parentApp.NEXT_ACTIVE_FORM = None
 
     def while_waiting(self):
-        self._lps_frame_text.value = str(self._stats.get('lps_frame', 0))
+        self._lps_frame_text.value = '{:10.3f}'.format(
+            self._stats.get('lps_frame', 0))
         self._lps_frame_text.display()
-        self._lps_lifetime_text.value = str(self._stats.get('lps_lifetime', 0))
+        self._lps_lifetime_text.value = '{:10.3f}'.format(
+            self._stats.get('lps_lifetime', 0))
         self._lps_lifetime_text.display()
-        self._lps_scene_text.value = str(self._stats.get('lps_scene', 0))
+        self._lps_scene_text.value = '{:10.3f}'.format(
+            self._stats.get('lps_scene', 0))
         self._lps_scene_text.display()
         self._time_text.value = time.asctime()
         self._time_text.display()
