@@ -108,6 +108,9 @@ class MonitorUI(npyscreen.NPSAppManaged):
     def signal_exit(self):
         self._running.value = 0
 
+    def onCleanExit(self):
+        self.signal_exit()
+
 
 if __name__ == '__main__':
     stats = {
