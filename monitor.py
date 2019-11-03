@@ -1,5 +1,6 @@
 # Log Monitor Entry Point
 from multiprocessing import Process, Queue, Value, Manager
+from queue import Empty
 from datetime import datetime, timedelta
 from collections import OrderedDict
 
@@ -15,11 +16,15 @@ ALERT_WINDOW = 120
 # number of frames in a scene
 NB_REFRESH_PER_ALERT_WINDOW = int(ALERT_WINDOW / REFRESH_INTERVAL)
 
+# wait for maximum 1 second when polling log queue
+LOG_QUEUE_TIMEOUT = 1
+
 
 def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_lps, running):
     total_hit_count = 0
     frame_hit_count = 0
     frame_heat_map = dict()
+    # circular buffer for hit counter in alert window
     frames_in_scene_hit_counts = [
         None for _ in range(NB_REFRESH_PER_ALERT_WINDOW)]
     frame_index_in_scene = 0
@@ -32,10 +37,14 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_
 
     next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
     while running.value == 1:
-        log_item = log_q.get()
-        frame_hit_count = frame_hit_count + 1
-        hit_count = frame_heat_map.get(log_item.section, 0)
-        frame_heat_map[log_item.section] = hit_count + 1
+        try:
+            log_item = log_q.get(timeout=LOG_QUEUE_TIMEOUT)
+            frame_hit_count = frame_hit_count + 1
+            hit_count = frame_heat_map.get(log_item.section, 0)
+            frame_heat_map[log_item.section] = hit_count + 1
+        except Empty as err:
+            log_item = None
+
         # aggregate results of frame
         if datetime.now() > next_aggregate_time:
             lps = 1.0 * frame_hit_count / REFRESH_INTERVAL
@@ -50,8 +59,8 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_
             frame_index_in_scene = (
                 frame_index_in_scene + 1) % NB_REFRESH_PER_ALERT_WINDOW
             if datetime.now() > alter_start_time:
-                scene_lps = sum(
-                    filter(None, frames_in_scene_hit_counts)) * 1.0 / ALERT_WINDOW
+                scene_lps = sum(frames_in_scene_hit_counts) * \
+                    1.0 / ALERT_WINDOW
             else:
                 scene_lps = total_lps
             aggregated_map['lps_scene'] = scene_lps
