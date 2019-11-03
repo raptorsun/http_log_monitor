@@ -26,19 +26,34 @@ class Dashboard(npyscreen.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._stats = kwargs.get('stats', {})
+        self._alert_q = kwargs.get('alert_q', None)
 
     def create(self):
         self.keypress_timeout = 10
+
+        height, width = self.useable_space()
+        max_widget_width = int(0.4 * width)
+
         self._lps_frame_text = self.add(
-            npyscreen.TitleFixedText, name='LPS 10s', value='0', editable=False)
+            npyscreen.TitleFixedText, name='LPS 10s', value='0', editable=False,
+            max_width=max_widget_width, max_height=1)
         self._lps_scene_text = self.add(
-            npyscreen.TitleFixedText, name='LPS 2min', value='0', editable=False)
+            npyscreen.TitleFixedText, name='LPS 2min', value='0', editable=False,
+            max_width=max_widget_width, max_height=1)
         self._lps_lifetime_text = self.add(
-            npyscreen.TitleFixedText, name='LPS Lifetime', value='0', editable=False)
+            npyscreen.TitleFixedText, name='LPS Lifetime', value='0', editable=False,
+            max_width=max_widget_width, max_height=1)
         self._time_text = self.add(
-            npyscreen.TitleFixedText, name='Time', value='0', editable=False)
+            npyscreen.TitleFixedText, name='Time', value='0', editable=False,
+            max_width=max_widget_width, max_height=1)
+
+        available_height = height - 4 - 4  # margin  = 4px, 4 text boxes = 4px
         self._section_hit_list = self.add(
-            npyscreen.TitlePager, name="Popular Sections")
+            npyscreen.TitlePager, name="Popular Sections", editable=False,
+            max_width=max_widget_width, max_height=int(available_height/2))
+        self._alert_list = self.add(
+            npyscreen.TitleBufferPager, name="Alerts", editable=False,
+            max_width=max_widget_width, max_height=int(available_height/2))
 
     def afterEditing(self):
         self.parentApp.NEXT_ACTIVE_FORM = None
@@ -61,16 +76,24 @@ class Dashboard(npyscreen.Form):
         self._section_hit_list.values = top_5_sections_str
         self._section_hit_list.display()
 
+        if self._alert_q and not self._alert_q.empty():
+            alert_item = self._alert_q.get()
+            alert_on = alert_item[0]
+            alert_msg = alert_item[1]
+            self._alert_list.buffer([alert_msg, ], scroll_end=True)
+            self._alert_list.display()
+
 
 class MonitorUI(npyscreen.NPSAppManaged):
-    def __init__(self, stats_dict={}, running=None):
+    def __init__(self, stats_dict={}, alert_q=None, running=None):
         super().__init__()
         self._stats_dict = stats_dict
         self._running = running
+        self._alert_q = alert_q
 
     def onStart(self):
         self.addForm('MAIN', Dashboard, name='Dashboard',
-                     stats=self._stats_dict)
+                     stats=self._stats_dict, alert_q=self._alert_q)
 
 
 if __name__ == '__main__':

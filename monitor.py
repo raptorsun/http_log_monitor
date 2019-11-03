@@ -16,7 +16,7 @@ ALERT_WINDOW = 120
 NB_REFRESH_PER_ALERT_WINDOW = int(ALERT_WINDOW / REFRESH_INTERVAL)
 
 
-def aggregate(log_q, alert_q, section_heat_map, aggregated_map, running):
+def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_lps, running):
     total_hit_count = 0
     frame_hit_count = 0
     frame_heat_map = dict()
@@ -25,6 +25,7 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, running):
     frame_index_in_scene = 0
     start_time = aggregated_map['start_time']
     alter_start_time = start_time + timedelta(seconds=ALERT_WINDOW)
+    alert_on = False
     aggregated_map['lps_frame'] = 0
     aggregated_map['lps_scene'] = 0
     aggregated_map['lps_lifetime'] = 0
@@ -49,10 +50,21 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, running):
             frame_index_in_scene = (
                 frame_index_in_scene + 1) % NB_REFRESH_PER_ALERT_WINDOW
             if datetime.now() > alter_start_time:
-                aggregated_map['lps_scene'] = sum(
+                scene_lps = sum(
                     filter(None, frames_in_scene_hit_counts)) * 1.0 / ALERT_WINDOW
             else:
-                aggregated_map['lps_scene'] = total_lps
+                scene_lps = total_lps
+            aggregated_map['lps_scene'] = scene_lps
+            if scene_lps > total_lps + alert_threshold_lps.value:
+                alert_on = True
+                alert_msg = 'High traffic generated an alert - hits = {}, triggered at {}'.format(
+                    scene_lps, datetime.now())
+                alert_q.put((alert_on, alert_msg))
+            elif alert_on:
+                alert_on = False
+                alert_msg = 'Alert Off - Traffic returned to normal at {}'.format(
+                    datetime.now())
+                alert_q.put((alert_on, alert_msg))
 
             aggregated_map['heat_map_frame'] = frame_heat_map
             # update total heat map
@@ -75,11 +87,13 @@ class Monitor(object):
         self._log_q = Queue()
         self._alert_q = Queue()
         self._running = Value('b', 1)
+        self._alert_threshold = Value('L', 5)
         self._section_hits = self._resource_manager.dict()
         self._aggregated_statistics = self._resource_manager.dict()
         self._aggregated_statistics['total_hit_count'] = 0
         self._aggregated_statistics['lps_frame'] = 0
-        self._ui = MonitorUI(self._aggregated_statistics, self._running)
+        self._ui = MonitorUI(self._aggregated_statistics,
+                             self._alert_q, self._running)
 
     def initialize(self):
         # watch files
@@ -89,7 +103,7 @@ class Monitor(object):
             self._processes.append(proc)
         # aggregate statistics
         proc = Process(target=aggregate, args=(
-            self._log_q, self._alert_q, self._section_hits, self._aggregated_statistics, self._running))
+            self._log_q, self._alert_q, self._section_hits, self._aggregated_statistics, self._alert_threshold, self._running))
         self._processes.append(proc)
         # UI
         proc = Process(target=self._ui.run)
