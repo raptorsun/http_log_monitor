@@ -12,27 +12,47 @@ from user_interface import MonitorUI
 REFRESH_INTERVAL = 10
 # alert is based on 2 minutes' sliding window, called a "scene"
 ALERT_WINDOW = 120
+# number of frames in a scene
+NB_REFRESH_PER_ALERT_WINDOW = int(ALERT_WINDOW / REFRESH_INTERVAL)
 
 
 def aggregate(log_q, alert_q, section_heat_map, aggregated_map, running):
     total_hit_count = 0
     frame_hit_count = 0
     frame_heat_map = dict()
+    frames_in_scene_hit_counts = [
+        None for _ in range(NB_REFRESH_PER_ALERT_WINDOW)]
+    frame_index_in_scene = 0
     start_time = aggregated_map['start_time']
+    alter_start_time = start_time + timedelta(seconds=ALERT_WINDOW)
+    aggregated_map['lps_frame'] = 0
+    aggregated_map['lps_scene'] = 0
+    aggregated_map['lps_lifetime'] = 0
+
     next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
     while running.value == 1:
         log_item = log_q.get()
         frame_hit_count = frame_hit_count + 1
         hit_count = frame_heat_map.get(log_item.section, 0)
         frame_heat_map[log_item.section] = hit_count + 1
-        # aggregate results
+        # aggregate results of frame
         if datetime.now() > next_aggregate_time:
             lps = 1.0 * frame_hit_count / REFRESH_INTERVAL
             aggregated_map['lps_frame'] = lps
             total_hit_count = total_hit_count + frame_hit_count
+
             time_delta = datetime.now() - start_time
             total_lps = total_hit_count / time_delta.seconds
             aggregated_map['lps_lifetime'] = total_lps
+
+            frames_in_scene_hit_counts[frame_index_in_scene] = frame_hit_count
+            frame_index_in_scene = (
+                frame_index_in_scene + 1) % NB_REFRESH_PER_ALERT_WINDOW
+            if datetime.now() > alter_start_time:
+                aggregated_map['lps_scene'] = sum(
+                    filter(None, frames_in_scene_hit_counts)) * 1.0 / ALERT_WINDOW
+            else:
+                aggregated_map['lps_scene'] = total_lps
 
             aggregated_map['heat_map_frame'] = frame_heat_map
             # update total heat map
@@ -74,7 +94,6 @@ class Monitor(object):
         # UI
         proc = Process(target=self._ui.run)
         self._processes.append(proc)
-
 
     def start_monitor(self):
         self._aggregated_statistics['start_time'] = datetime.now()

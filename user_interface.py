@@ -1,6 +1,6 @@
 import datetime
 import time
-from collections import OrderedDict
+from collections import Counter
 import threading
 
 import npyscreen
@@ -30,11 +30,15 @@ class Dashboard(npyscreen.Form):
     def create(self):
         self.keypress_timeout = 10
         self._lps_frame_text = self.add(
-            npyscreen.TitleFixedText, name='LPS Frame', value='0', editable=False)
+            npyscreen.TitleFixedText, name='LPS 10s', value='0', editable=False)
+        self._lps_scene_text = self.add(
+            npyscreen.TitleFixedText, name='LPS 2min', value='0', editable=False)
         self._lps_lifetime_text = self.add(
             npyscreen.TitleFixedText, name='LPS Lifetime', value='0', editable=False)
         self._time_text = self.add(
             npyscreen.TitleFixedText, name='Time', value='0', editable=False)
+        self._section_hit_list = self.add(
+            npyscreen.TitlePager, name="Popular Sections")
 
     def afterEditing(self):
         self.parentApp.NEXT_ACTIVE_FORM = None
@@ -44,8 +48,18 @@ class Dashboard(npyscreen.Form):
         self._lps_frame_text.display()
         self._lps_lifetime_text.value = self._stats.get('lps_lifetime', 0)
         self._lps_lifetime_text.display()
+        self._lps_scene_text.value = self._stats.get('lps_scene', 0)
+        self._lps_scene_text.display()
         self._time_text.value = time.asctime()
         self._time_text.display()
+
+        heatmap = self._stats.get('heat_map_frame', {})
+        top_5_sections = Counter(heatmap).most_common(5)
+        top_5_sections_str = [
+            '{} {}'.format(x[0], x[1]) for x in top_5_sections
+        ]
+        self._section_hit_list.values = top_5_sections_str
+        self._section_hit_list.display()
 
 
 class MonitorUI(npyscreen.NPSAppManaged):
