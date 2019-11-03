@@ -31,6 +31,8 @@ class Dashboard(npyscreen.Form):
     def create(self):
         self.keypress_timeout = 10
 
+        self.how_exited_handers[npyscreen.wgwidget.EXITED_ESCAPE] = self.exit_application
+
         height, width = self.useable_space()
         max_widget_width = int(0.4 * width)
 
@@ -86,6 +88,11 @@ class Dashboard(npyscreen.Form):
             self._alert_list.buffer([alert_msg, ], scroll_end=True)
             self._alert_list.display()
 
+    def exit_application(self):
+        self.parentApp.setNextForm(None)
+        self.editing = False
+        self.parentApp.signal_exit()
+
 
 class MonitorUI(npyscreen.NPSAppManaged):
     def __init__(self, stats_dict={}, alert_q=None, running=None):
@@ -97,6 +104,9 @@ class MonitorUI(npyscreen.NPSAppManaged):
     def onStart(self):
         self.addForm('MAIN', Dashboard, name='Dashboard',
                      stats=self._stats_dict, alert_q=self._alert_q)
+
+    def signal_exit(self):
+        self._running.value = 0
 
 
 if __name__ == '__main__':
