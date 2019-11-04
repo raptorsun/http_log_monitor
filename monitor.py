@@ -3,6 +3,8 @@ from multiprocessing import Process, Queue, Value, Manager
 from queue import Empty
 from datetime import datetime, timedelta
 from collections import OrderedDict
+import getopt
+import sys
 
 from file_watcher import watch_file
 from user_interface import show_ui
@@ -66,7 +68,7 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_
             aggregated_map['lps_scene'] = scene_lps
             if scene_lps > total_lps + alert_threshold_lps.value:
                 alert_on = True
-                alert_msg = 'High traffic generated an alert - hits = {}, triggered at {}'.format(
+                alert_msg = 'High traffic generated an alert - hits = {:.2f}, triggered at {}'.format(
                     scene_lps, datetime.now())
                 alert_q.put((alert_on, alert_msg))
             elif alert_on:
@@ -89,14 +91,14 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_
 
 class Monitor(object):
 
-    def __init__(self, filenames):
+    def __init__(self, filenames, threshold_aps):
         self._filenames = filenames
         self._processes = list()
         self._resource_manager = Manager()
         self._log_q = Queue()
         self._alert_q = Queue()
         self._running = Value('b', 1)
-        self._alert_threshold = Value('L', 5)
+        self._alert_threshold = Value('L', threshold_aps)
         self._section_hits = self._resource_manager.dict()
         self._aggregated_statistics = self._resource_manager.dict()
         self._aggregated_statistics['total_hit_count'] = 0
@@ -128,9 +130,41 @@ class Monitor(object):
             proc.join()
 
 
+def usage():
+    print('''
+    HTTP Log Monitor
+    Usage:
+    monitor.py -s access.log [-s other_access.log] [-t 5]
+    -s --source     HTTP access log, 
+                    multiple log files can be passed by adding "-s log1 -s log2"
+    -t --threshold  Threshold in Access Per Second to trigger alarm when 2 minute 
+                    average is above the lifetime average of this threshold. Default is 5.
+    ''')
+
+
 DEFAULT_LOG_FILES = ['sample_logs/test.log']
 if __name__ == "__main__":
-    monitor = Monitor(DEFAULT_LOG_FILES)
+    log_files = list()
+    threshold_aps = 5
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'hs:t:', [
+                                   'help', 'source=', 'threshold='])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+        sys.exit(2)
+    for o, a in opts:
+        if o in ("-h", "--help"):
+            usage()
+            sys.exit()
+        elif o in ("-s", "--source"):
+            log_files.append(a)
+        elif o in ("-t", "--threshold"):
+            threshold_aps = int(a)
+        else:
+            assert False, "unhandled option"
+    monitor = Monitor(log_files, threshold_aps)
     monitor.initialize()
     monitor.start_monitor()
     monitor.wait_for_finish()
