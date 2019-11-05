@@ -53,9 +53,10 @@ class Dashboard(npyscreen.Form):
         self._section_hit_list = self.add(
             npyscreen.TitlePager, name="Popular Sections", editable=False,
             max_width=max_widget_width, max_height=int(available_height/2))
+
         self._alert_list = self.add(
             npyscreen.TitleBufferPager, name="Alerts", editable=False,
-            max_width=max_widget_width, max_height=int(available_height/2))
+            max_width=width - 4, max_height=int(available_height/2))
 
     def afterEditing(self):
         self.parentApp.NEXT_ACTIVE_FORM = None
