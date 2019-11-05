@@ -3,16 +3,16 @@ import sys
 import os
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 DEFAULT_LOG_SOURCE_FILE = 'sample_logs/access.log'
 DEFAULT_OUTPUT_FILE = 'sample_logs/test.log'
 DEFAULT_LPS = 1  # lines per second
 
+
 HTTP_METHODS = [
     'GET', 'POST', 'PUT', 'DELETE', 'HEAD'
 ]
-HTTP_METHODS_COUNT = len(HTTP_METHODS)
 
 URLS_CANDIDATES = [
     '/administrator/index.php',
@@ -24,7 +24,6 @@ URLS_CANDIDATES = [
     '/item/bigc-shop-responsive-woocommerce-theme/14279188',
     '/item/cartoon-cavemen/14669255',
 ]
-URLS_CANDIDATES_COUNT = len(URLS_CANDIDATES)
 
 USERNAMES = [
     'SMITH',
@@ -38,7 +37,6 @@ USERNAMES = [
     'MOORE',
     'TAYLOR',
 ]
-USERNAMES_COUNT = len(USERNAMES)
 
 STATUS = [
     200,
@@ -47,7 +45,6 @@ STATUS = [
     404,
     500
 ]
-STATUS_COUNT = len(STATUS)
 
 
 class LogGenerator(object):
@@ -56,6 +53,9 @@ class LogGenerator(object):
         self._dest_file = dest_file
         self._sleep_duration = 1.0 / lps
         random.seed(time.asctime())
+        self.timestamp = datetime.now()
+        self.timestamp_str = self.timestamp.strftime(
+            '[%d/%b/%Y:%H:%M:%S +0100]')
 
     def generate_file(self):
         src_file = open(self._source_file, 'r')
@@ -65,50 +65,30 @@ class LogGenerator(object):
             dest_file.write(line)
             dest_file.flush()
             os.fsync(dest_file.fileno())
-            print(line)
             time.sleep(self._sleep_duration)
 
-    def get_random_host(self):
-        return ".".join(map(str, (random.randint(0, 255) for _ in range(4))))
-
-    def get_random_user(self):
-        return USERNAMES[random.randint(0, USERNAMES_COUNT - 1)]
-
-    def get_random_method(self):
-        return HTTP_METHODS[random.randint(0, HTTP_METHODS_COUNT - 1)]
-
-    def get_random_url(self):
-        return URLS_CANDIDATES[random.randint(0, URLS_CANDIDATES_COUNT - 1)]
-
-    def get_random_status(self):
-        return STATUS[random.randint(0, STATUS_COUNT - 1)]
-
-    def get_timestamp(self):
-        # example [12/Dec/2015:18:51:08 +0100]
-        return datetime.now().strftime('[%d/%b/%Y:%H:%M:%S +0100]')
-
-    def get_random_size(self):
-        return random.randint(100, 80000)
-
     def get_random_log_line(self):
-        return '{} - {} {} "{} {}" {} {} "Mozilla/5.0 (Windows NT 6.0; rv:34.0) Gecko/20100101 Firefox/34.0" "-"'.format(
-            self.get_random_host(),
-            self.get_random_user(),
-            self.get_timestamp(),
-            self.get_random_method(),
-            self.get_random_url(),
-            self.get_random_status(),
-            self.get_random_size()
-        )
+        host = ".".join(map(str, (int(random.random()*255) for _ in range(4))))
+        user = random.choice(USERNAMES)
+        method = random.choice(HTTP_METHODS)
+        url = random.choice(URLS_CANDIDATES)
+        status = random.choice(STATUS)
+        size = int(random.random()*80000)
+
+        if self.timestamp + timedelta(seconds=1) < datetime.now():
+            self.timestamp = datetime.now()
+            self.timestamp_str = self.timestamp.strftime(
+                '[%d/%b/%Y:%H:%M:%S +0100]')
+        return f'{host} - {user} {self.timestamp_str} "{method} {url}" {status} {size}" "Mozilla/5.0 (Windows NT 6.0; rv:34.0) Gecko/20100101 Firefox/34.0" "-"\n'
 
     def generate_random_log(self):
         dest_file = open(self._dest_file, 'a+')
+
         while True:
             line = self.get_random_log_line()
             dest_file.write(line)
             dest_file.flush()
             os.fsync(dest_file.fileno())
-            print(line)
             time.sleep(self._sleep_duration)
 
 
