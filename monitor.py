@@ -22,73 +22,6 @@ NB_REFRESH_PER_ALERT_WINDOW = int(ALERT_WINDOW / REFRESH_INTERVAL)
 LOG_QUEUE_TIMEOUT = 1
 
 
-def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_lps, running):
-    total_hit_count = 0
-    frame_hit_count = 0
-    frame_heat_map = dict()
-    # circular buffer for hit counter in alert window
-    frames_in_scene_hit_counts = [
-        None for _ in range(NB_REFRESH_PER_ALERT_WINDOW)]
-    frame_index_in_scene = 0
-    start_time = aggregated_map['start_time']
-    alter_start_time = start_time + timedelta(seconds=ALERT_WINDOW)
-    alert_on = False
-    aggregated_map['lps_frame'] = 0
-    aggregated_map['lps_scene'] = 0
-    aggregated_map['lps_lifetime'] = 0
-
-    next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
-    while running.value == 1:
-        try:
-            log_item = log_q.get(timeout=LOG_QUEUE_TIMEOUT)
-            frame_hit_count = frame_hit_count + 1
-            hit_count = frame_heat_map.get(log_item.section, 0)
-            frame_heat_map[log_item.section] = hit_count + 1
-        except Empty as err:
-            log_item = None
-
-        # aggregate results of frame
-        if datetime.now() > next_aggregate_time:
-            lps = 1.0 * frame_hit_count / REFRESH_INTERVAL
-            aggregated_map['lps_frame'] = lps
-            total_hit_count = total_hit_count + frame_hit_count
-
-            time_delta = datetime.now() - start_time
-            total_lps = total_hit_count / time_delta.seconds
-            aggregated_map['lps_lifetime'] = total_lps
-
-            frames_in_scene_hit_counts[frame_index_in_scene] = frame_hit_count
-            frame_index_in_scene = (
-                frame_index_in_scene + 1) % NB_REFRESH_PER_ALERT_WINDOW
-            if datetime.now() > alter_start_time:
-                scene_lps = sum(frames_in_scene_hit_counts) * \
-                    1.0 / ALERT_WINDOW
-            else:
-                scene_lps = total_lps
-            aggregated_map['lps_scene'] = scene_lps
-            if scene_lps > total_lps + alert_threshold_lps.value:
-                alert_on = True
-                alert_msg = 'High traffic generated an alert - hits = {:.2f}, triggered at {}'.format(
-                    scene_lps, datetime.now().strftime('%H:%M:%S'))
-                alert_q.put((alert_on, alert_msg))
-            elif alert_on:
-                alert_on = False
-                alert_msg = 'Alert Off - Traffic returned to normal at {}'.format(
-                    datetime.now().strftime('%H:%M:%S'))
-                alert_q.put((alert_on, alert_msg))
-
-            aggregated_map['heat_map_frame'] = frame_heat_map
-            # update total heat map
-            for section, hit in frame_heat_map.items():
-                hit_count = section_heat_map.get(section, 0) + hit
-                section_heat_map[section] = hit_count
-
-            # new frame
-            frame_hit_count = 0
-            frame_heat_map = dict()
-            next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
-
-
 class Monitor(object):
 
     def __init__(self, filenames, threshold_aps):
@@ -113,8 +46,7 @@ class Monitor(object):
                 filename, self._log_q, self._running))
             self._processes.append(proc)
         # aggregate statistics
-        proc = Process(target=aggregate, args=(
-            self._log_q, self._alert_q, self._section_hits, self._aggregated_statistics, self._alert_threshold, self._running))
+        proc = Process(target=self.aggregate)
         self._processes.append(proc)
         # UI
         proc = Process(target=self._ui.run)
@@ -128,6 +60,72 @@ class Monitor(object):
     def wait_for_finish(self):
         for proc in self._processes:
             proc.join()
+
+    def aggregate(self):
+        total_hit_count = 0
+        frame_hit_count = 0
+        frame_heat_map = dict()
+        # circular buffer for hit counter in alert window
+        frames_in_scene_hit_counts = [
+            None for _ in range(NB_REFRESH_PER_ALERT_WINDOW)]
+        frame_index_in_scene = 0
+        start_time = self._aggregated_statistics['start_time']
+        alter_start_time = start_time + timedelta(seconds=ALERT_WINDOW)
+        alert_on = False
+        self._aggregated_statistics['lps_frame'] = 0
+        self._aggregated_statistics['lps_scene'] = 0
+        self._aggregated_statistics['lps_lifetime'] = 0
+
+        next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
+        while self._running.value == 1:
+            try:
+                log_item = self._log_q.get(timeout=LOG_QUEUE_TIMEOUT)
+                frame_hit_count = frame_hit_count + 1
+                hit_count = frame_heat_map.get(log_item.section, 0)
+                frame_heat_map[log_item.section] = hit_count + 1
+            except Empty as err:
+                log_item = None
+
+            # aggregate results of frame
+            if datetime.now() > next_aggregate_time:
+                lps = 1.0 * frame_hit_count / REFRESH_INTERVAL
+                self._aggregated_statistics['lps_frame'] = lps
+                total_hit_count = total_hit_count + frame_hit_count
+
+                time_delta = datetime.now() - start_time
+                total_lps = total_hit_count / time_delta.seconds
+                self._aggregated_statistics['lps_lifetime'] = total_lps
+
+                frames_in_scene_hit_counts[frame_index_in_scene] = frame_hit_count
+                frame_index_in_scene = (
+                    frame_index_in_scene + 1) % NB_REFRESH_PER_ALERT_WINDOW
+                if datetime.now() > alter_start_time:
+                    scene_lps = sum(frames_in_scene_hit_counts) * \
+                        1.0 / ALERT_WINDOW
+                else:
+                    scene_lps = total_lps
+                self._aggregated_statistics['lps_scene'] = scene_lps
+                if scene_lps > total_lps + self._alert_threshold.value:
+                    alert_on = True
+                    alert_msg = 'High traffic generated an alert - hits = {:.2f}, triggered at {}'.format(
+                        scene_lps, datetime.now().strftime('%H:%M:%S'))
+                    self._alert_q.put((alert_on, alert_msg))
+                elif alert_on:
+                    alert_on = False
+                    alert_msg = 'Alert Off - Traffic returned to normal at {}'.format(
+                        datetime.now().strftime('%H:%M:%S'))
+                    self._alert_q.put((alert_on, alert_msg))
+
+                self._aggregated_statistics['heat_map_frame'] = frame_heat_map
+                # update total heat map
+                for section, hit in frame_heat_map.items():
+                    hit_count = self._section_hits.get(section, 0) + hit
+                    self._section_hits[section] = hit_count
+
+                # new frame
+                frame_hit_count = 0
+                frame_heat_map = dict()
+                next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
 
 
 def usage():
@@ -145,7 +143,7 @@ def usage():
 DEFAULT_LOG_FILES = ['sample_logs/test.log']
 if __name__ == "__main__":
     log_files = list()
-    threshold_aps = 5
+    threshold_aps = 10
 
     try:
         opts, args = getopt.getopt(sys.argv[1:], 'hs:t:', [
