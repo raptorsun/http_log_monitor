@@ -69,12 +69,12 @@ def aggregate(log_q, alert_q, section_heat_map, aggregated_map, alert_threshold_
             if scene_lps > total_lps + alert_threshold_lps.value:
                 alert_on = True
                 alert_msg = 'High traffic generated an alert - hits = {:.2f}, triggered at {}'.format(
-                    scene_lps, datetime.now())
+                    scene_lps, datetime.now().strftime('%H:%M:%S'))
                 alert_q.put((alert_on, alert_msg))
             elif alert_on:
                 alert_on = False
                 alert_msg = 'Alert Off - Traffic returned to normal at {}'.format(
-                    datetime.now())
+                    datetime.now().strftime('%H:%M:%S'))
                 alert_q.put((alert_on, alert_msg))
 
             aggregated_map['heat_map_frame'] = frame_heat_map
