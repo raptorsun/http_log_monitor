@@ -1,13 +1,12 @@
 # Log Monitor Entry Point
 from multiprocessing import Process, Queue, Value, Manager
-from queue import Empty
+import queue
 from datetime import datetime, timedelta
 from collections import OrderedDict
 import getopt
 import sys
 
 from file_watcher import watch_file
-from user_interface import show_ui
 from user_interface import MonitorUI
 
 
@@ -15,23 +14,25 @@ from user_interface import MonitorUI
 REFRESH_INTERVAL = 10
 # alert is based on 2 minutes' sliding window, called a "scene"
 ALERT_WINDOW = 120
-# number of frames in a scene
-NB_REFRESH_PER_ALERT_WINDOW = int(ALERT_WINDOW / REFRESH_INTERVAL)
-
 # wait for maximum 1 second when polling log queue
 LOG_QUEUE_TIMEOUT = 1
 
 
 class Monitor(object):
 
-    def __init__(self, filenames, threshold_aps):
+    def __init__(self, filenames, threshold_lps,
+                 frame_interval=REFRESH_INTERVAL,
+                 scene_interval=ALERT_WINDOW):
         self._filenames = filenames
         self._processes = list()
         self._resource_manager = Manager()
         self._log_q = Queue()
         self._alert_q = Queue()
         self._running = Value('b', 1)
-        self._alert_threshold = Value('L', threshold_aps)
+        self._alert_threshold = Value('L', threshold_lps)
+        self._frame_interval = frame_interval
+        self._scene_interval = scene_interval
+        self._frames_per_scene = int(scene_interval / frame_interval)
         self._section_hits = self._resource_manager.dict()
         self._aggregated_statistics = self._resource_manager.dict()
         self._aggregated_statistics['total_hit_count'] = 0
@@ -52,10 +53,13 @@ class Monitor(object):
         proc = Process(target=self._ui.run)
         self._processes.append(proc)
 
-    def start_monitor(self):
+    def start(self):
         self._aggregated_statistics['start_time'] = datetime.now()
         for process in self._processes:
             process.start()
+
+    def stop(self):
+        self._running.value = 0
 
     def wait_for_finish(self):
         for proc in self._processes:
@@ -67,28 +71,28 @@ class Monitor(object):
         frame_heat_map = dict()
         # circular buffer for hit counter in alert window
         frames_in_scene_hit_counts = [
-            None for _ in range(NB_REFRESH_PER_ALERT_WINDOW)]
+            None for _ in range(self._frames_per_scene)]
         frame_index_in_scene = 0
         start_time = self._aggregated_statistics['start_time']
-        alter_start_time = start_time + timedelta(seconds=ALERT_WINDOW)
+        alter_start_time = start_time + timedelta(seconds=self._scene_interval)
         alert_on = False
         self._aggregated_statistics['lps_frame'] = 0
         self._aggregated_statistics['lps_scene'] = 0
         self._aggregated_statistics['lps_lifetime'] = 0
 
-        next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
+        next_aggregate_time = datetime.now() + timedelta(seconds=self._frame_interval)
         while self._running.value == 1:
             try:
                 log_item = self._log_q.get(timeout=LOG_QUEUE_TIMEOUT)
                 frame_hit_count = frame_hit_count + 1
                 hit_count = frame_heat_map.get(log_item.section, 0)
                 frame_heat_map[log_item.section] = hit_count + 1
-            except Empty as err:
+            except queue.Empty as err:
                 log_item = None
 
             # aggregate results of frame
             if datetime.now() > next_aggregate_time:
-                lps = 1.0 * frame_hit_count / REFRESH_INTERVAL
+                lps = 1.0 * frame_hit_count / self._frame_interval
                 self._aggregated_statistics['lps_frame'] = lps
                 total_hit_count = total_hit_count + frame_hit_count
 
@@ -98,10 +102,10 @@ class Monitor(object):
 
                 frames_in_scene_hit_counts[frame_index_in_scene] = frame_hit_count
                 frame_index_in_scene = (
-                    frame_index_in_scene + 1) % NB_REFRESH_PER_ALERT_WINDOW
+                    frame_index_in_scene + 1) % self._frames_per_scene
                 if datetime.now() > alter_start_time:
                     scene_lps = sum(frames_in_scene_hit_counts) * \
-                        1.0 / ALERT_WINDOW
+                        1.0 / self._scene_interval
                 else:
                     scene_lps = total_lps
                 self._aggregated_statistics['lps_scene'] = scene_lps
@@ -125,7 +129,7 @@ class Monitor(object):
                 # new frame
                 frame_hit_count = 0
                 frame_heat_map = dict()
-                next_aggregate_time = datetime.now() + timedelta(seconds=REFRESH_INTERVAL)
+                next_aggregate_time = datetime.now() + timedelta(seconds=self._frame_interval)
 
 
 def usage():
@@ -164,5 +168,5 @@ if __name__ == "__main__":
             assert False, "unhandled option"
     monitor = Monitor(log_files, threshold_aps)
     monitor.initialize()
-    monitor.start_monitor()
+    monitor.start()
     monitor.wait_for_finish()
