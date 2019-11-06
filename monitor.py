@@ -6,7 +6,7 @@ from collections import OrderedDict
 import getopt
 import sys
 
-from file_watcher import watch_file
+from file_watcher import FileWatcher
 from user_interface import MonitorUI
 
 
@@ -43,8 +43,8 @@ class Monitor(object):
     def initialize(self):
         # watch files
         for filename in self._filenames:
-            proc = Process(target=watch_file, args=(
-                filename, self._log_q, self._running))
+            fw = FileWatcher(filename)
+            proc = Process(target=fw.watch, args=(self._log_q, self._running))
             self._processes.append(proc)
         # aggregate statistics
         proc = Process(target=self.aggregate)

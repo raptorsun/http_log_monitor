@@ -36,6 +36,8 @@ DEFAULT_READLINE_SLEEP = 0.1
 DEFAULT_READLINE_TIMEOUT = 1
 
 # minic the "tail -f" on Linux
+
+
 class FileWatcher(object):
     def __init__(self, filename, timeout=DEFAULT_READLINE_TIMEOUT):
         try:
@@ -70,21 +72,20 @@ class FileWatcher(object):
     def __next__(self):
         return self.readline()
 
-
-def watch_file(filename, log_queue, running):
-    parser = LogParser()
-    tail = FileWatcher(filename, timeout=1)
-    for line in tail:
-        if running.value != 1:
-            break
-        remotehost, rfc931, authuser, date, request, status, size = parser.parse_line(
-            line)
-        if not request:
-            continue
-        section = parser.section_from_request(request)
-        log_item = LogItem(remotehost, rfc931, authuser,
-                           date, request, status, size, section)
-        log_queue.put(log_item)
+    def watch(self, log_queue, running):
+        parser = LogParser()
+        while running.value == 1:
+            line = self.readline
+            if line == '':
+                continue
+            remotehost, rfc931, authuser, date, request, status, size = parser.parse_line(
+                line)
+            if not request:
+                continue
+            section = parser.section_from_request(request)
+            log_item = LogItem(remotehost, rfc931, authuser,
+                               date, request, status, size, section)
+            log_queue.put(log_item)
 
 
 def test():
