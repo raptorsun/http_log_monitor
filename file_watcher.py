@@ -75,7 +75,7 @@ class FileWatcher(object):
     def watch(self, log_queue, running):
         parser = LogParser()
         while running.value == 1:
-            line = self.readline
+            line = self.readline()
             if line == '':
                 continue
             remotehost, rfc931, authuser, date, request, status, size = parser.parse_line(
