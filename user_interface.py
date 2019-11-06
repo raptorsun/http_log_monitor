@@ -8,20 +8,6 @@ import npyscreen
 UI_REFRESH_INTERVAL = 0.5
 
 
-def show_ui(statistics, section_hit_dict):
-    while True:
-        frame_lps = statistics.get('lps_frame', 0)
-        print('current LPS:', frame_lps)
-        frame_heat_map = statistics.get('heat_map_frame', {})
-        sorted_frame_heat_map = OrderedDict({k: v for k, v in sorted(
-            frame_heat_map.items(), key=lambda x: x[1])})
-        print('frame heat map')
-        for key, value in sorted_frame_heat_map.items():
-            print(key,  value)
-
-        time.sleep(1.0)
-
-
 class Dashboard(npyscreen.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
