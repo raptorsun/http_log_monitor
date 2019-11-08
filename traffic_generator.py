@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import getopt
 import sys
 import os
@@ -97,7 +98,7 @@ class LogGenerator(object):
 
 
 def usage():
-    print(''' 
+    print('''
 Write logs from source to destination file with a rate
 -s source file
 -d destination file
