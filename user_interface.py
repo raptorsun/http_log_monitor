@@ -189,13 +189,21 @@ class Dashboard(npyscreen.Form):
         self._status_box.set_values(timestr=time.asctime())
         self._status_box.display()
 
-        heatmap = self._stats.get('heat_map_frame', {})
-        top_sections = Counter(heatmap).most_common()
+        section_heatmap = self._stats.get('heat_map_frame', {})
+        top_sections = Counter(section_heatmap).most_common()
         top_sections_hits_str = [
-            '{} {}'.format(x[0], x[1]) for x in top_sections
+            f'{x[0]} {x[1]}' for x in top_sections
         ]
         self._section_hit_list.values = top_sections_hits_str
         self._section_hit_list.display()
+
+        host_heatmap = self._stats.get('host_heat_map', {})
+        top_hosts = Counter(host_heatmap).most_common(50)
+        top_hosts_str = [
+            f'{x[1]:10d} - {x[0]}' for x in top_hosts
+        ]
+        self._hot_host_list.values = top_hosts_str
+        self._hot_host_list.display()
 
         if self._alert_q and not self._alert_q.empty():
             alert_item = self._alert_q.get()

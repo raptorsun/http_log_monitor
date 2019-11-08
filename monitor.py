@@ -69,6 +69,8 @@ class Monitor(object):
         total_hit_count = 0
         frame_hit_count = 0
         frame_heat_map = dict()
+        host_heat_map = dict()
+
         # circular buffer for hit counter in alert window
         frames_in_scene_hit_counts = [
             None for _ in range(self._frames_per_scene)]
@@ -87,6 +89,9 @@ class Monitor(object):
                 frame_hit_count = frame_hit_count + 1
                 hit_count = frame_heat_map.get(log_item.section, 0)
                 frame_heat_map[log_item.section] = hit_count + 1
+                bandwidth_consumed = host_heat_map.get(log_item.remotehost, 0)
+                host_heat_map[log_item.remotehost] = bandwidth_consumed + \
+                    int(log_item.size)
             except queue.Empty as err:
                 log_item = None
 
@@ -121,6 +126,7 @@ class Monitor(object):
                     self._alert_q.put((alert_on, alert_msg))
 
                 self._aggregated_statistics['heat_map_frame'] = frame_heat_map
+                self._aggregated_statistics['host_heat_map'] = host_heat_map
                 # update total heat map
                 for section, hit in frame_heat_map.items():
                     hit_count = self._section_hits.get(section, 0) + hit
@@ -129,6 +135,7 @@ class Monitor(object):
                 # new frame
                 frame_hit_count = 0
                 frame_heat_map = dict()
+                host_heat_map = dict()
                 next_aggregate_time = datetime.now() + timedelta(seconds=self._frame_interval)
 
 
