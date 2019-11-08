@@ -144,14 +144,14 @@ class Dashboard(npyscreen.Form):
         self._lps_box = self.add(TrafficBox, name='Traffic', editable=False,
                                  relx=2,
                                  rely=rely,
-                                 max_width=(width // 2 - 2),
+                                 max_width=(width // 2 - 4),
                                  max_height=height_lps_status_box)
         self._lps_box.set_values(val_10s=0, val_2m=0, val_lifetime=0)
 
         self._status_box = self.add(StatusBox, name="Status", editable=False,
-                                    relx=(width // 2 + 1),
+                                    relx=(width // 2 + 2),
                                     rely=rely,
-                                    max_width=(width // 2 - 2),
+                                    max_width=(width // 2 - 4),
                                     max_height=height_lps_status_box)
 
         rely += height_lps_status_box + 2
@@ -161,13 +161,13 @@ class Dashboard(npyscreen.Form):
             relx=2,
             rely=rely,
             max_height=available_height//2,
-            max_width=(width // 2 - 2))
+            max_width=(width // 2 - 4))
         self._hot_host_list = self.add(
             npyscreen.BoxTitle, name="Top Bandwidth Consumer", editable=True, scroll_exit=True,
-            relx=(width // 2 + 1),
+            relx=(width // 2 + 2),
             rely=rely,
             max_height=available_height//2,
-            max_width=(width // 2 - 2))
+            max_width=(width // 2 - 4))
         rely += available_height//2 + 2
         self._alert_list = self.add(
             BufferPagerBox, name="Alerts", editable=False,
