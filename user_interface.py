@@ -32,26 +32,25 @@ class TrafficBox(npyscreen.BoxTitle):
             self._slider_max = tmp_max * 1.3
         elif tmp_max < self._slider_max * 0.6:
             self._slider_max = self._slider_max * 0.6
-        self._my_widgets[0].entry_widget.out_of = self._slider_max
-        self._my_widgets[1].entry_widget.out_of = self._slider_max
-        self._my_widgets[2].entry_widget.out_of = self._slider_max
+        self._slider_10s.entry_widget.out_of = self._slider_max
+        self._slider_2m.entry_widget.out_of = self._slider_max
+        self._slider_lifetime.entry_widget.out_of = self._slider_max
 
-        self._my_widgets[0].value = self._10s_value
-        self._my_widgets[1].value = self._2m_value
-        self._my_widgets[2].value = self._lifetime_value
+        self._slider_10s.value = self._10s_value
+        self._slider_2m.value = self._2m_value
+        self._slider_lifetime.value = self._lifetime_value
 
     def make_contained_widget(self, contained_widget_arguments=None):
         self._my_widgets = []
         _rely = self.rely+1
-        _relx = self.relx+1
+        _relx = self.relx+2
         width = self.width
 
         self._slider_max = 10
         self._10s_value = 0
         self._2m_value = 0
         self._lifetime_value = 0
-
-        self._my_widgets.append(TitleOneDecimalSlider(
+        self._slider_10s = TitleOneDecimalSlider(
             self.parent,
             rely=_rely,
             relx=_relx,
@@ -60,9 +59,10 @@ class TrafficBox(npyscreen.BoxTitle):
             out_of=self._slider_max,
             value=self._10s_value,
             editable=False
-        ))
+        )
+        self._my_widgets.append(self._slider_10s)
         _rely += 1
-        self._my_widgets.append(TitleOneDecimalSlider(
+        self._slider_2m = TitleOneDecimalSlider(
             self.parent,
             rely=_rely,
             relx=_relx,
@@ -71,9 +71,10 @@ class TrafficBox(npyscreen.BoxTitle):
             out_of=self._slider_max,
             value=self._2m_value,
             editable=False
-        ))
+        )
+        self._my_widgets.append(self._slider_2m)
         _rely += 1
-        self._my_widgets.append(TitleOneDecimalSlider(
+        self._slider_lifetime = TitleOneDecimalSlider(
             self.parent,
             rely=_rely,
             relx=_relx,
@@ -82,9 +83,34 @@ class TrafficBox(npyscreen.BoxTitle):
             out_of=self._slider_max,
             value=self._lifetime_value,
             editable=False
-        ))
+        )
+        self._my_widgets.append(self._slider_lifetime)
         _rely += 1
 
+        self.entry_widget = weakref.proxy(self._my_widgets[0])
+
+
+class StatusBox(npyscreen.BoxTitle):
+    def set_values(self, timestr, alert_on=None, alert_msg=None):
+        self._time_text.value = timestr
+        if not alert_on is None:
+            self._alert_on = alert_on
+            self._alert_msg = alert_msg
+            self._alert_on_text.value = 'ON' if self._alert_on else 'OFF'
+
+    def make_contained_widget(self, contained_widget_arguments=None):
+        self._my_widgets = []
+        _rely = self.rely+1
+        _relx = self.relx+2
+        width = self.width
+        self._time_text = npyscreen.TitleFixedText(
+            self.parent, name='Time', value='0', editable=False, rely=_rely, relx=_relx, max_width=width - 3)
+        self._my_widgets.append(self._time_text)
+        _rely += 1
+        self._alert_on_text = npyscreen.TitleFixedText(
+            self.parent, name='Alert', value='OFF', editable=False, rely=_rely, relx=_relx, max_width=width - 3)
+        self._my_widgets.append(self._alert_on_text)
+        _rely += 1
         self.entry_widget = weakref.proxy(self._my_widgets[0])
 
 
@@ -102,20 +128,27 @@ class Dashboard(npyscreen.Form):
 
         height, width = self.useable_space()
 
-        self._time_text = self.add(
-            npyscreen.TitleFixedText, name='Time', value='0', editable=False)
-
-        self._lps_box = self.add(
-            TrafficBox, name='Traffic', max_height=10, max_width=width / 2, editable=False)
+        height_lps_status_box = 5
+        rely_lps_status_box = 2
+        self._lps_box = self.add(TrafficBox, name='Traffic', editable=False,
+                                 relx=2,
+                                 rely=rely_lps_status_box,
+                                 max_width=(width // 2 - 2),
+                                 max_height=height_lps_status_box)
         self._lps_box.set_values(val_10s=0, val_2m=0, val_lifetime=0)
 
-        available_height = height - 4 - self._time_text.height - \
-            self._lps_box.height
+        self._status_box = self.add(StatusBox, name="Status", editable=False,
+                                    relx=(width // 2 + 1),
+                                    rely=rely_lps_status_box,
+                                    max_width=(width // 2 - 2),
+                                    max_height=height_lps_status_box)
+
+        available_height = height - 4 - height_lps_status_box - 5
         self._section_hit_list = self.add(
-            npyscreen.TitlePager, name="Popular Sections", editable=False, max_height=int(available_height/2))
+            npyscreen.TitlePager, name="Popular Sections", editable=False, max_height=available_height//2)
 
         self._alert_list = self.add(
-            npyscreen.TitleBufferPager, name="Alerts", editable=False, max_height=int(available_height/2))
+            npyscreen.TitleBufferPager, name="Alerts", editable=False, max_height=available_height//2)
 
     def afterEditing(self):
         self.parentApp.NEXT_ACTIVE_FORM = None
@@ -128,8 +161,8 @@ class Dashboard(npyscreen.Form):
         )
         self._lps_box.display()
 
-        self._time_text.value = time.asctime()
-        self._time_text.display()
+        self._status_box.set_values(timestr=time.asctime())
+        self._status_box.display()
 
         heatmap = self._stats.get('heat_map_frame', {})
         top_sections = Counter(heatmap).most_common()
@@ -145,6 +178,9 @@ class Dashboard(npyscreen.Form):
             alert_msg = alert_item[1]
             self._alert_list.buffer([alert_msg, ], scroll_end=True)
             self._alert_list.display()
+            self._status_box.set_values(
+                timestr=time.asctime(), alert_on=alert_on, alert_msg=alert_msg)
+            self._status_box.display()
 
     def exit_application(self):
         self.parentApp.setNextForm(None)
