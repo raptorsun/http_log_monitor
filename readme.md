@@ -1,6 +1,8 @@
 HTTP Log Monitor
 ================
 
+![UI small 1](/images/screenshot_1.png)
+
 This program monitors multiple HTTP access log files and show the following information in its text-based user interface:
 - Traffic in Logs Per Second (LPS), over a time window of 3 lengths
   - 10 seconds
@@ -13,7 +15,6 @@ This program monitors multiple HTTP access log files and show the following info
 - Top Consumer Hosts, listing the hosts getting the most bytes of data in the responses
 - List of most recent alert events: when alert has been triggered because of high traffic, when the alert went off as traffic drops back to normal.
 
-![UI small 1](/images/screenshot_1.png)
 
 
 How to Use
@@ -64,6 +65,12 @@ Write logs from source to destination file with a rate
     -l lines per second  number of lines output each second
 ```
 
+test_monitor.py
+---------------
+This is a test for alert mechanism in monitor.py. It has its own log_q producer process to feed Analyzer with a moderate pace at the beginning and then switch to a very high rate later on, with the intention of generating a high-traffic alert. Once the alert is on, it drops the output traffic so that the alert will goes off.
+```
+./test_monitor.py
+```
 
 Design
 ======
