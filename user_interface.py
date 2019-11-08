@@ -97,6 +97,7 @@ class StatusBox(npyscreen.BoxTitle):
             self._alert_on = alert_on
             self._alert_msg = alert_msg
             self._alert_on_text.value = 'ON' if self._alert_on else 'OFF'
+            self._alert_on_text.entry_widget.color = 'WARNING' if self._alert_on else 'SAFE'
 
     def make_contained_widget(self, contained_widget_arguments=None):
         self._my_widgets = []
@@ -104,14 +105,24 @@ class StatusBox(npyscreen.BoxTitle):
         _relx = self.relx+2
         width = self.width
         self._time_text = npyscreen.TitleFixedText(
-            self.parent, name='Time', value='0', editable=False, rely=_rely, relx=_relx, max_width=width - 3)
+            self.parent, name='Time', value='0', editable=False, rely=_rely, relx=_relx, max_width=width - 4)
         self._my_widgets.append(self._time_text)
         _rely += 1
         self._alert_on_text = npyscreen.TitleFixedText(
-            self.parent, name='Alert', value='OFF', editable=False, rely=_rely, relx=_relx, max_width=width - 3)
+            self.parent, name='Alert', value='OFF', editable=False, rely=_rely, relx=_relx, max_width=width - 4, color='SAFE')
         self._my_widgets.append(self._alert_on_text)
         _rely += 1
         self.entry_widget = weakref.proxy(self._my_widgets[0])
+
+
+class BufferPagerBox(npyscreen.BoxTitle):
+    _contained_widget = npyscreen.BufferPager
+
+    def clearBuffer(self):
+        return self.entry_widget.clearBuffer()
+
+    def buffer(self, *args, **values):
+        return self.entry_widget.buffer(*args, **values)
 
 
 class Dashboard(npyscreen.Form):
@@ -129,26 +140,40 @@ class Dashboard(npyscreen.Form):
         height, width = self.useable_space()
 
         height_lps_status_box = 5
-        rely_lps_status_box = 2
+        rely = 2
         self._lps_box = self.add(TrafficBox, name='Traffic', editable=False,
                                  relx=2,
-                                 rely=rely_lps_status_box,
+                                 rely=rely,
                                  max_width=(width // 2 - 2),
                                  max_height=height_lps_status_box)
         self._lps_box.set_values(val_10s=0, val_2m=0, val_lifetime=0)
 
         self._status_box = self.add(StatusBox, name="Status", editable=False,
                                     relx=(width // 2 + 1),
-                                    rely=rely_lps_status_box,
+                                    rely=rely,
                                     max_width=(width // 2 - 2),
                                     max_height=height_lps_status_box)
 
+        rely += height_lps_status_box + 2
         available_height = height - 4 - height_lps_status_box - 5
         self._section_hit_list = self.add(
-            npyscreen.TitlePager, name="Popular Sections", editable=False, max_height=available_height//2)
-
+            npyscreen.BoxTitle, name="Popular Sections", editable=True, scroll_exit=True,
+            relx=2,
+            rely=rely,
+            max_height=available_height//2,
+            max_width=(width // 2 - 2))
+        self._hot_host_list = self.add(
+            npyscreen.BoxTitle, name="Top Bandwidth Consumer", editable=True, scroll_exit=True,
+            relx=(width // 2 + 1),
+            rely=rely,
+            max_height=available_height//2,
+            max_width=(width // 2 - 2))
+        rely += available_height//2 + 2
         self._alert_list = self.add(
-            npyscreen.TitleBufferPager, name="Alerts", editable=False, max_height=available_height//2)
+            BufferPagerBox, name="Alerts", editable=False,
+            relx=2,
+            max_height=available_height//2,
+            color='WARNING')
 
     def afterEditing(self):
         self.parentApp.NEXT_ACTIVE_FORM = None
