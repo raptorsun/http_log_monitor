@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Log Monitor Entry Point
 from multiprocessing import Process, Queue, Value, Manager
 import queue
@@ -143,11 +145,11 @@ def usage():
     print('''
     HTTP Log Monitor
     Usage:
-    monitor.py -s access.log [-s other_access.log] [-t 5]
-    -s --source     HTTP access log, 
+    monitor.py -s access.log [-s other_access.log] [-t 10]
+    -s --source     HTTP access log,
                     multiple log files can be passed by adding "-s log1 -s log2"
-    -t --threshold  Threshold in Access Per Second to trigger alarm when 2 minute 
-                    average is above the lifetime average of this threshold. Default is 5.
+    -t --threshold  Threshold in Access Per Second to trigger alarm when 2 minute
+                    average is above the lifetime average of this threshold. Default is 10.
     ''')
 
 
