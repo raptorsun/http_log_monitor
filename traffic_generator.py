@@ -23,6 +23,10 @@ URLS_CANDIDATES = [
     '/item/aves-business-theme/12854860',
     '/item/bigc-shop-responsive-woocommerce-theme/14279188',
     '/item/cartoon-cavemen/14669255',
+    '/images/stories/slideshow/almhuette_raith_02.jpg',
+    '/templates/jp_hotel/js/moomenu.js',
+    '/modules/mod_bowslideshow/tmpl/images/image_shadow.png',
+
 ]
 
 USERNAMES = [
@@ -79,7 +83,7 @@ class LogGenerator(object):
             self.timestamp = datetime.now()
             self.timestamp_str = self.timestamp.strftime(
                 '[%d/%b/%Y:%H:%M:%S +0100]')
-        return f'{host} - {user} {self.timestamp_str} "{method} {url}" {status} {size}" "Mozilla/5.0 (Windows NT 6.0; rv:34.0) Gecko/20100101 Firefox/34.0" "-"\n'
+        return f'{host} - {user} {self.timestamp_str} "{method} {url}" {status} {size} "-" "Mozilla/5.0 (Windows NT 6.0; rv:34.0) Gecko/20100101 Firefox/34.0" "-"\n'
 
     def generate_random_log(self):
         dest_file = open(self._dest_file, 'a+')
