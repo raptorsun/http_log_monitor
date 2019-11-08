@@ -80,13 +80,40 @@ The File Watchers read new line from monitored files, parse the log line and put
 
 The Analyzer consume log items and update the memory segment shared with User Interface. When Analyzer finds out the 2 minutes average LPS is higher than the lifetime average LPS plus a threshold, the Analyzer send an alert item into the alert message queue. Which will be consumed by the User Interface.
 
-The User Interface present a text based UI in the console, periodically update the widgets with statistics information in the shared memory. If there is message in the alert queue, update the alert status and shows alert messages in the UI.
+The User Interface present a text based UI in the console, periodically update the widgets with statistics information in the shared memory. If there is message in the alert queue,  the alert status will change accordingly and shows alert messages in the UI.
 
 Data Structure
 --------------
 
+The Analyzer is required to calculate average traffic during a sliding time windows of 2 minutes and the average traffic every 10 seconds during these 10 seconds. This is similar to filming a movie. We can consider the statistics collected every 10 seconds as a frame and the sliding time windows of 2 minutes as a scene. A scene is composed of multiple frames in a movie, so is the 2 minute statistics composed as an aggregation of 12 times of statistics over 10 seconds.
 
+Thus we use a circular buffer to keep every frame containing 10s of statistics in the scene of 2 minutes. Thus it contains 12 items in the buffer (2min / 10s = 12). For calculating average traffic over 2 minutes, we just need to sum up the access counter of each item in the buffer and then divided by duration of 2 minutes. Any metric can be calculated this way, as long as it is an [aggregation function](https://en.wikipedia.org/wiki/Aggregate_function).
 
+Information sharing between UI and Analyzer is done through a shared dictionary. No locking mechanism is required since UI is a pure reader and Analyzer is the only process writing into this dictionary.
+
+Log are fed to Analyzer via FIFO message queue, so are alerts fed to UI.
 
 Evolution
 =========
+
+File Watcher
+------------
+Access logs are usually rotated when reaching certain size. We can make File Watcher support rotated log file and temporary missing files.
+
+Parser assumes each line conforms with the [w3c-format](https://www.w3.org/Daemon/User/Config/Logging.html). We can add error handling for corrupted logs.
+
+Analyzer
+--------
+Current implementation of Analyzer is not parallelizable. In face of very high traffic, Analyzer may not be able to catch up. We can make it scalable by:
+1. allocating dedicated statistics buffer for each Analyzer, keeping counters only
+2. adding a merger process merging data from individual Analyzer and put it into memory shared with UI
+
+In this version all data are ephemeral, we can add a analytics recorder keeping calculated metrics in perisitent storage (disk, DB) for later consultation.
+
+User Interface
+--------------
+Most widgets use the size defined at start time for the rest of their life. We can make it auto resize when we modify the size of terminal during execution.
+
+Add meaningful colors on metrics.
+
+Add beep when alert is on.
