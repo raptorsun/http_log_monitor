@@ -90,14 +90,3 @@ class FileWatcher(object):
             log_item = LogItem(remotehost, rfc931, authuser,
                                date, request, status, size, section)
             log_queue.put(log_item)
-
-
-def test():
-    DEFAULT_TAIL_FILE = 'sample_logs/test.log'
-    tail = FileWatcher(DEFAULT_TAIL_FILE, 1)
-    for line in tail:
-        print(line)
-
-
-if __name__ == "__main__":
-    test()
