@@ -83,6 +83,10 @@ class FileWatcher(object):
             if not request:
                 continue
             section = parser.section_from_request(request)
+            try:
+                size = int(size)
+            except ValueError:
+                size = 0
             log_item = LogItem(remotehost, rfc931, authuser,
                                date, request, status, size, section)
             log_queue.put(log_item)
