@@ -137,7 +137,6 @@ class Monitor(object):
                 # new frame
                 frame_hit_count = 0
                 frame_heat_map = dict()
-                host_heat_map = dict()
                 next_aggregate_time = datetime.now() + timedelta(seconds=self._frame_interval)
 
 
