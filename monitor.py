@@ -74,8 +74,7 @@ class Monitor(object):
         host_heat_map = dict()
 
         # circular buffer for hit counter in alert window
-        frames_in_scene_hit_counts = [
-            None for _ in range(self._frames_per_scene)]
+        frames_in_scene_hit_counts = [0 for _ in range(self._frames_per_scene)]
         frame_index_in_scene = 0
         start_time = self._aggregated_statistics['start_time']
         alter_start_time = start_time + timedelta(seconds=self._scene_interval)
@@ -152,7 +151,6 @@ def usage():
     ''')
 
 
-DEFAULT_LOG_FILES = ['sample_logs/test.log']
 if __name__ == "__main__":
     log_files = list()
     threshold_aps = 10
