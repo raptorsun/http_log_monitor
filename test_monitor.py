@@ -79,8 +79,8 @@ class AlertQConsumer(object):
 
 
 # shorter duration for faster testing
-FRAME_INTERVAL = 5
-SCENE_INTERVAL = 20
+FRAME_INTERVAL = 2
+SCENE_INTERVAL = 8
 
 
 class MonitorTest(unittest.TestCase):
