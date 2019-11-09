@@ -1,7 +1,7 @@
 HTTP Log Monitor
 ================
 
-![UI small 1](/images/screenshot_1.png)
+![UI small 1](/images/screenshot_3.png)
 
 This program monitors multiple HTTP access log files and show the following information in its text-based user interface:
 
@@ -62,7 +62,7 @@ Quit monitor: switch to OK button at the bottom and press enter, or press Esc ke
 
 Statistics starts to show from the 10th second. It is normal there is no information shown withing the 10 seconds just after launching the monitor.
 
-![UI big 5](/images/screenshot_big_5.png)
+![UI big 5](/images/screenshot_big_1.png)
 
 traffic_generator.py
 --------------------
