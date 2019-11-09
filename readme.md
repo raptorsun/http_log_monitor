@@ -15,6 +15,10 @@ This program monitors multiple HTTP access log files and show the following info
 - Top Consumer Hosts, listing the hosts getting the most bytes of data in the responses
 - List of most recent alert events: when alert has been triggered because of high traffic, when the alert went off as traffic drops back to normal.
 
+Repositories:
+- [Bitbucket](https://bitbucket.org/raptorsun/http_log_monitor/src/master/)
+- [Github](https://github.com/raptorsun/http_log_monitor)
+
 
 
 How to Use
@@ -41,7 +45,7 @@ Once the monitor is running, a TUI will pop up presenting statistics on access l
 - Traffic: LPS in 3 time-windows: 10s, 2m, lifetime, refreshed every 10 seconds.
 - Status: Current Time and Alert Status. Alerts are shown in different colors for ON and OFF.
 - Popular Sections: List of sections most accessed during the past 10 seconds
-- Top Bandwidth Consumers: List of remotehosts requested the most bytes of data during the past 10 seconds.
+- Top Bandwidth Consumers: List of remotehosts requested the most bytes of data during since the beginning.
 - Alerts: List of most recent alerts, if average traffic over 2 minutes is high above the life time average exceeding the threshold, the alerts will continue pop up in this list. When traffic return under the threshold, only one alert off message will show. The list is rolling up in the same way "tail -f" does.
 
 
@@ -49,7 +53,7 @@ Swtich box: Use tab and alt-tab to switch from one box to another.
 Browsing list: Use up and down arrow keys to browse a list (Popular Sections, Top Bandwidth Consumers)
 Quit monitor: switch to OK button at the bottom and press enter, or press Esc key at any moment.
 
-Statistics starts to show from the 10th second. It is normal there is no information shown just after launching the monitor.
+Statistics starts to show from the 10th second. It is normal there is no information shown withing the 10 seconds just after launching the monitor.
 
 ![UI big 5](/images/screenshot_big_5.png)
 
@@ -67,9 +71,21 @@ Write logs from source to destination file with a rate
 
 test_monitor.py
 ---------------
-This is a test for alert mechanism in monitor.py. It has its own log_q producer process to feed Analyzer with a moderate pace at the beginning and then switch to a very high rate later on, with the intention of generating a high-traffic alert. Once the alert is on, it drops the output traffic so that the alert will goes off.
+This is a test for alert mechanism in monitor.py. It has its own log queue producer process to feed Analyzer with a moderate pace at the beginning and then switch to a very high rate later on, with the intention of generating a high-traffic alert. Once the alert is on, it drops the output traffic so that the alert will goes off. Then it will check the alert off message is well received through the alert queue.
 ```
-./test_monitor.py
+python test_monitor.py
+```
+
+It will show test results in the format below. The test takes about 30 seconds on a PC with Core i7 8650U.
+```
+(pyenv_monitor) ➜  http_log_monitor git:(master) ✗ time python test_monitor.py
+test_alert_on_and_off (__main__.MonitorTest) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 32.335s
+
+OK
+python test_monitor.py  0.52s user 0.59s system 3% cpu 32.672 total
 ```
 
 Design
@@ -82,6 +98,8 @@ There are 3 type of processes:
 1. File Wather
 2. Analyzer
 3. User Inerface
+
+![schema architecture](images/architecture_schema.png)
 
 The File Watchers read new line from monitored files, parse the log line and put the extracted information as log items into a message queue dedicated to log influx.
 
@@ -105,7 +123,7 @@ Evolution
 
 File Watcher
 ------------
-Access logs are usually rotated when reaching certain size. We can make File Watcher support rotated log file and temporary missing files.
+Access logs are usually rotated when reaching certain size in production environment. We can make File Watcher support rotated log file and temporary missing files.
 
 Parser assumes each line conforms with the [w3c-format](https://www.w3.org/Daemon/User/Config/Logging.html). We can add error handling for corrupted logs.
 
@@ -119,8 +137,14 @@ In this version all data are ephemeral, we can add a analytics recorder keeping 
 
 User Interface
 --------------
+Daemonize the Analyzer and Filewatcher, make the UI a seperate application to launch when we need consult statistics. 
+
 Most widgets use the size defined at start time for the rest of their life. We can make it auto resize when we modify the size of terminal during execution.
 
-Add meaningful colors on metrics.
+Add meaningful colors on metrics for easier reading.
+
+Alert
+-----
+Send email to concerned people when alert is on.
 
 Add beep when alert is on.
