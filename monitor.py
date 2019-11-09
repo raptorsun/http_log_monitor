@@ -57,6 +57,7 @@ class Monitor(object):
 
     def start(self):
         self._aggregated_statistics['start_time'] = datetime.now()
+        self._aggregated_statistics['next_aggregate_time'] = datetime.now()
         for process in self._processes:
             process.start()
 
@@ -84,6 +85,7 @@ class Monitor(object):
         self._aggregated_statistics['lps_lifetime'] = 0
 
         next_aggregate_time = datetime.now() + timedelta(seconds=self._frame_interval)
+        self._aggregated_statistics['next_aggregate_time'] = next_aggregate_time
         while self._running.value == 1:
             try:
                 log_item = self._log_q.get(timeout=LOG_QUEUE_TIMEOUT)
@@ -137,6 +139,7 @@ class Monitor(object):
                 frame_hit_count = 0
                 frame_heat_map = dict()
                 next_aggregate_time = datetime.now() + timedelta(seconds=self._frame_interval)
+                self._aggregated_statistics['next_aggregate_time'] = next_aggregate_time
 
 
 def usage():

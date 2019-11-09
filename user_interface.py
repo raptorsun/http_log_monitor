@@ -1,7 +1,6 @@
 import datetime
 import time
 from collections import Counter
-import threading
 import weakref
 
 import npyscreen
@@ -91,13 +90,35 @@ class TrafficBox(npyscreen.BoxTitle):
 
 
 class StatusBox(npyscreen.BoxTitle):
-    def set_values(self, timestr, alert_on=None, alert_msg=None):
+    REFRESH_SLIDER_MAX = 10
+    _refresh_time = None
+    _next_refresh_time = None
+
+    def set_values(self, timestr, alert_on=None, alert_msg=None, refresh_time=None):
+        # clock
         self._time_text.value = timestr
+        # alert
         if not alert_on is None:
             self._alert_on = alert_on
             self._alert_msg = alert_msg
             self._alert_on_text.value = 'ON' if self._alert_on else 'OFF'
             self._alert_on_text.entry_widget.color = 'WARNING' if self._alert_on else 'SAFE'
+        # progress bar
+        time_now = datetime.datetime.now()
+        if self._refresh_time is None:
+            self._refresh_time = time_now
+            self._next_refresh_time = refresh_time
+            self._refresh_slider.value = 0
+        elif time_now < self._next_refresh_time:
+            time_elapsed = (time_now - self._refresh_time).seconds
+            refresh_interval = (refresh_time - self._refresh_time).seconds
+            self._refresh_slider.value = min(
+                time_elapsed * self.REFRESH_SLIDER_MAX // refresh_interval,  self.REFRESH_SLIDER_MAX)
+        else:
+            self._flag = False
+            self._refresh_slider.value = 0
+            self._refresh_time = self._next_refresh_time
+            self._next_refresh_time = refresh_time
 
     def make_contained_widget(self, contained_widget_arguments=None):
         self._my_widgets = []
@@ -112,6 +133,10 @@ class StatusBox(npyscreen.BoxTitle):
             self.parent, name='Alert', value='OFF', editable=False, rely=_rely, relx=_relx, max_width=width - 4, color='SAFE')
         self._my_widgets.append(self._alert_on_text)
         _rely += 1
+        self._refresh_slider = npyscreen.TitleSlider(
+            self.parent,  name='Refreshing', value=0, out_of=self.REFRESH_SLIDER_MAX, editable=False, rely=_rely, relx=_relx, max_width=width - 4
+        )
+        self._my_widgets.append(self._refresh_slider)
         self.entry_widget = weakref.proxy(self._my_widgets[0])
 
 
@@ -186,7 +211,10 @@ class Dashboard(npyscreen.Form):
         )
         self._lps_box.display()
 
-        self._status_box.set_values(timestr=time.asctime())
+        next_refresh_time = self._stats.get(
+            'next_aggregate_time', datetime.datetime.now())
+        self._status_box.set_values(
+            timestr=time.asctime(), refresh_time=next_refresh_time)
         self._status_box.display()
 
         section_heatmap = self._stats.get('heat_map_frame', {})
@@ -212,7 +240,7 @@ class Dashboard(npyscreen.Form):
             self._alert_list.buffer([alert_msg, ], scroll_end=True)
             self._alert_list.display()
             self._status_box.set_values(
-                timestr=time.asctime(), alert_on=alert_on, alert_msg=alert_msg)
+                timestr=time.asctime(), alert_on=alert_on, alert_msg=alert_msg, refresh_time=next_refresh_time)
             self._status_box.display()
 
     def exit_application(self):
