@@ -25,6 +25,7 @@ Repositories:
 *  [Bitbucket](https://bitbucket.org/raptorsun/http_log_monitor/src/master/)
 *  [Github](https://github.com/raptorsun/http_log_monitor)
 
+Video Demonstration on [Youtube](https://youtu.be/KmdNRTdZAgk)
 
 
 How to Use
