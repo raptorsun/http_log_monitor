@@ -1,13 +1,13 @@
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
+# refer to https://docs.redhat.com/en/documentation/red_hat_openshift_pipelines/1.21/html/pipelines_as_code/creating-pipeline-runs-pac
 metadata:
   name: bundle-update-integration-test
   annotations:
-    # Trigger this pipeline on pull request events
     pipelinesascode.tekton.dev/on-event: "[pull_request]"
     pipelinesascode.tekton.dev/on-target-branch: "[master]"
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
 spec:
-  # 1. Map Pipelines-as-Code dynamic variables to pipeline parameters
   params:
     - name: repo_owner
       value: "{{repo_owner}}"
@@ -44,7 +44,6 @@ spec:
             - name: apply-labels
               image: registry.access.redhat.com/ubi9/ubi
               env:
-                # 2. Inject the temporary PaC GitHub App Token to interact with the API
                 - name: GITHUB_TOKEN
                   valueFrom:
                     secretKeyRef:
@@ -53,17 +52,29 @@ spec:
               script: |
                 #!/usr/bin/env bash
 
-                echo "body: {{ body }}"
+                if [[ "$(params.pr_title)" == "Bundle Update"* ||
+                 "$(params.pr_title)" == "Catalog Update from Bundle Snapshot "* ]]; then
+                  echo "PR title begins with 'Bundle Update' or 'Catalog Update from Bundle Snapshot'. Applying labels..."
 
-                # 3. Check the PR title
-                if [[ "$(params.pr_title)" == "Bundle Update"* ]]; then
-                  echo "PR title begins with 'Bundle Update'. Applying labels..."
-
-                  # 4. Use the GitHub REST API to add the labels
-                  curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                  label_output=$(curl -s -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
                        -H "Accept: application/vnd.github.v3+json" \
                        "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/labels" \
-                       -d '{"labels":["lgtm", "approved"]}'
+                       -d '{"labels":["lgtm", "approved"]}' 2>&1)
+                  label_exit=$?
+
+                  if [[ $label_exit -eq 0 ]]; then
+                    comment_body='label added: `lgtm`, `approved`'
+                  else
+                    escaped=${label_output//\\/\\\\}
+                    escaped=${escaped//\"/\\\"}
+                    escaped=${escaped//$'\n'/\\n}
+                    comment_body="Label add failed: ${escaped}"
+                  fi
+
+                  curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/comments" \
+                       -d "$(printf '{"body":"%s"}' "$comment_body")"
                 else
                   echo "PR title does not match. Skipping labels. $(params.pr_title)"
                 fi
