@@ -1,0 +1,67 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: bundle-update-integration-test
+  annotations:
+    # Trigger this pipeline on pull request events
+    pipelinesascode.tekton.dev/on-event: "[pull_request]"
+    pipelinesascode.tekton.dev/on-target-branch: "[master]"
+spec:
+  # 1. Map Pipelines-as-Code dynamic variables to pipeline parameters
+  params:
+    - name: repo_owner
+      value: "{{repo_owner}}"
+    - name: repo_name
+      value: "{{repo_name}}"
+    - name: pr_number
+      value: "{{pull_request_number}}"
+    - name: pr_title
+      value: "{{ body.pull_request.title }}"
+  pipelineSpec:
+    params:
+      - name: repo_owner
+      - name: repo_name
+      - name: pr_number
+      - name: pr_title
+    tasks:
+      - name: check-and-label-pr
+        params:
+          - name: repo_owner
+            value: $(params.repo_owner)
+          - name: repo_name
+            value: $(params.repo_name)
+          - name: pr_number
+            value: $(params.pr_number)
+          - name: pr_title
+            value: $(params.pr_title)
+        taskSpec:
+          params:
+            - name: repo_owner
+            - name: repo_name
+            - name: pr_number
+            - name: pr_title
+          steps:
+            - name: apply-labels
+              image: registry.access.redhat.com/ubi9/ubi
+              env:
+                # 2. Inject the temporary PaC GitHub App Token to interact with the API
+                - name: GITHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: "{{git_auth_secret}}"
+                      key: git-provider-token
+              script: |
+                #!/usr/bin/env bash
+
+                # 3. Check the PR title
+                if [[ "$(params.pr_title)" == "Bundle Update"* ]]; then
+                  echo "PR title begins with 'Bundle Update'. Applying labels..."
+
+                  # 4. Use the GitHub REST API to add the labels
+                  curl -X POST -H "Authorization: token ${GITHUB_TOKEN}" \
+                       -H "Accept: application/vnd.github.v3+json" \
+                       "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/labels" \
+                       -d '{"labels":["lgtm", "approved"]}'
+                else
+                  echo "PR title does not match. Skipping labels."
+                fi
