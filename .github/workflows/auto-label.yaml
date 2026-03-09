@@ -3,6 +3,8 @@ name: Auto-label PR
 on:
   pull_request:
     types: [opened, synchronize]
+    branches:
+      - master
 
 jobs:
   label:
