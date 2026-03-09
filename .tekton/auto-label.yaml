@@ -63,5 +63,5 @@ spec:
                        "https://api.github.com/repos/$(params.repo_owner)/$(params.repo_name)/issues/$(params.pr_number)/labels" \
                        -d '{"labels":["lgtm", "approved"]}'
                 else
-                  echo "PR title does not match. Skipping labels."
+                  echo "PR title does not match. Skipping labels. $(params.pr_title)"
                 fi
