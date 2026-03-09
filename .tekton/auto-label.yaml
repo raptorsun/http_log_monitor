@@ -53,6 +53,8 @@ spec:
               script: |
                 #!/usr/bin/env bash
 
+                echo "body: {{ body }}"
+
                 # 3. Check the PR title
                 if [[ "$(params.pr_title)" == "Bundle Update"* ]]; then
                   echo "PR title begins with 'Bundle Update'. Applying labels..."
